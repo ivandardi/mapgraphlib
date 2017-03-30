@@ -104,6 +104,36 @@ public:
     }
 
 public:
+
+    auto degree_dispatch(iterator const& vertex, std::true_type) const
+    {
+        return out_degree() + in_degree();
+    }
+
+    auto degree_dispatch(iterator const& vertex, std::false_type) const
+    {
+        return vertex._list_iterator->adjacent_edges.size();
+    }
+
+    auto degree(iterator const& vertex) const
+    {
+        return degree_dispatch(vertex, std::integral_constant<bool, is_directed>{});
+    }
+
+    template<bool B = is_directed, typename = std::enable_if_t<std::integral_constant<bool, B>::value>>
+    auto out_degree(iterator const& vertex) const
+    {
+        return 0;
+    }
+
+    template<bool B = is_directed, typename = std::enable_if_t<std::integral_constant<bool, B>::value>>
+    auto in_degree(iterator const& vertex) const
+    {
+        return 0;
+    }
+
+
+public:
     /// Returns an iterator to the first element of the container. If the
     /// container is empty, the returned iterator will
     /// be equal to `end()`.
@@ -180,7 +210,6 @@ public:
 
         auto const amount = accumulate(cbegin(_vertices), cend(_vertices), static_cast<size_type>(0),
                                        [](size_type s, Vertex const& vertex) {
-                                           std::cout << "SIZE = " << vertex.adjacent_edges.size() << '\n';
                                            return s + vertex.adjacent_edges.size();
                                        });
 
@@ -209,9 +238,11 @@ public:
     /// \param value element value to insert
     iterator insert(value_type const& value) noexcept
     {
-        _vertices.push_back(value);
-        return end();
+        using std::end;
+        return iterator(_vertices.insert(end(_vertices), Vertex(value)));
+
     }
+
     /// Inserts element(s) into the container, if the container doesn't already
     /// contain an element with an equivalent
     /// key.
@@ -222,8 +253,8 @@ public:
     /// \param value element value to insert
     iterator insert(value_type&& value) noexcept
     {
-        _vertices.push_back(std::move(value));
-        return end();
+        using std::end;
+        return iterator(_vertices.insert(end(_vertices), Vertex(value)));
     }
 
     /// Inserts a new element into the container constructed in-place with the
@@ -241,8 +272,8 @@ public:
     template <typename... Args>
     iterator emplace(Args&&... args)
     {
-        _vertices.emplace_back(std::forward<Args>(args)...);
-        return end();
+        using std::end;
+        return iterator(_vertices.emplace(end(_vertices), std::forward<Args>(args)...));
     };
 
     /// Removes the element at pos. References and iterators to the erased
@@ -298,7 +329,6 @@ public:
     void add_edge(iterator& a, iterator& b) noexcept
     {
         a._list_iterator->adjacent_edges.push_back(Edge(b._list_iterator));
-        std::cout << "adj edges size is: " << a._list_iterator->adjacent_edges.size() << '\n';
         if (!is_directed) {
             b._list_iterator->adjacent_edges.push_back(Edge(a._list_iterator));
         }
