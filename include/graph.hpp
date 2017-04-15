@@ -1,357 +1,235 @@
 #pragma once
 
-#include "iterator.hpp"
+#include "declarations.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <iostream>
 #include <list>
 #include <numeric>
-#include <string>
 #include <vector>
 
-template <typename T, bool is_directed>
-class Graph
-{
+namespace Direction {
 
-private:
-    struct Vertex;
-    using vertex_list = std::list<Vertex>;
-    using graph = Graph<T, is_directed>;
-
-public:
-    using value_type = T;
-    using size_type = typename vertex_list::size_type;
-    using difference_type = typename vertex_list::difference_type;
-    using pointer = value_type*;
-    using const_pointer = const value_type*;
-    using reference = value_type&;
-    using const_reference = const value_type&;
-
-    using iterator = graph_iterator<Vertex, is_directed>;
-
-    static const std::string::size_type npos = std::string::npos;
-
-public:
-    struct Edge
-    {
-        using vertex_pointer = typename vertex_list::iterator;
-
-        Edge(vertex_pointer const& incident_vertex)
-        : incident_vertex(incident_vertex)
-        {
-        }
-
-        vertex_pointer incident_vertex;
-    };
-
-private:
-    struct Vertex
-    {
-
-        using value_type = T;
-
-        Vertex(value_type const& value)
-        : value(value)
-        , adjacent_edges()
-        {
-        }
-
-        value_type value;
-        std::vector<Edge> adjacent_edges;
-    };
-
-public:
-    /// Copy-assign constructor. If failure happens when assigning, it is
-    /// guaranteed that the state won't be altered.
-    ///
-    /// # Complexity
-    /// Linear in the size of *this and other.
-    ///
-    /// \param other The graph to be copied
-    /// \return *this
-    graph& operator=(graph const& other)
-    {
-        _vertices = other._vertices;
-        return *this;
-    }
-
-    /// Move-assign constructor. If failure happens when assigning, it is
-    /// guaranteed that the state won't be altered.
-    ///
-    /// # Complexity
-    /// Linear in the size of *this and other.
-    ///
-    /// \param other The graph to be moved
-    /// \return *this
-    graph& operator=(graph&& other)
-    {
-        _vertices = std::move(other)._vertices;
-        return *this;
-    }
-
-    /// Initializer-list constructor. Used to initialize the set of vertices.
-    ///
-    /// # Complexity
-    /// Linear in the size of *this and ilist.
-    ///
-    /// \param ilist `std::initializer_list` of vertices
-    /// \return *this
-    graph& operator=(std::initializer_list<value_type> ilist)
-    {
-        _vertices = ilist;
-        return *this;
-    }
-
-public:
-
-    auto degree_dispatch(iterator const& vertex, std::true_type) const
-    {
-        return out_degree() + in_degree();
-    }
-
-    auto degree_dispatch(iterator const& vertex, std::false_type) const
-    {
-        return vertex._list_iterator->adjacent_edges.size();
-    }
-
-    auto degree(iterator const& vertex) const
-    {
-        return degree_dispatch(vertex, std::integral_constant<bool, is_directed>{});
-    }
-
-    template<bool B = is_directed, typename = std::enable_if_t<std::integral_constant<bool, B>::value>>
-    auto out_degree(iterator const& vertex) const
-    {
-        return 0;
-    }
-
-    template<bool B = is_directed, typename = std::enable_if_t<std::integral_constant<bool, B>::value>>
-    auto in_degree(iterator const& vertex) const
-    {
-        return 0;
-    }
-
-
-public:
-    /// Returns an iterator to the first element of the container. If the
-    /// container is empty, the returned iterator will
-    /// be equal to `end()`.
-    ///
-    /// # Complexity
-    /// Constant.
-    ///
-    /// \return Iterator to the first element
-    iterator begin() noexcept
-    {
-        return iterator(_vertices.begin());
-    }
-
-    /// Returns an iterator to the element following the last element of the
-    /// container. This element acts as a
-    /// placeholder; attempting to access it results in undefined behavior.
-    ///
-    /// # Complexity
-    /// Constant.
-    ///
-    /// \return Iterator to the element following the last element
-    iterator end() noexcept
-    {
-        return iterator(_vertices.end());
-    }
-
-public:
-    std::vector<iterator> adjacent_vertices_of(iterator const& vertex)
-    {
-        using std::begin;
-        using std::end;
-
-        std::vector<iterator> adj;
-        for (Edge const& edge : vertex._list_iterator->adjacent_edges) {
-            adj.emplace_back(edge.incident_vertex);
-        }
-        return adj;
-    }
-
-    /// Checks if the container has no elements, i.e. whether `begin() ==
-    /// end()`.
-    ///
-    /// # Complexity
-    /// Constant.
-    ///
-    /// \return `true` if the container is empty, false otherwise
-    bool empty() const noexcept
-    {
-        return _vertices.empty();
-    }
-
-    /// Returns the number of vertices in the graph.
-    ///
-    /// # Complexity
-    /// Constant.
-    ///
-    /// \return the number of vertices in the graph
-    size_type num_vertices() const noexcept
-    {
-        return _vertices.size();
-    }
-
-    /// Returns the number of edges in the graph.
-    ///
-    /// # Complexity
-    /// Linear in the amount of vertices.
-    ///
-    /// \return the number of edges in the graph
-    size_type num_edges() const noexcept
-    {
-        using std::accumulate;
-        using std::cbegin;
-        using std::cend;
-
-        auto const amount = accumulate(cbegin(_vertices), cend(_vertices), static_cast<size_type>(0),
-                                       [](size_type s, Vertex const& vertex) {
-                                           return s + vertex.adjacent_edges.size();
-                                       });
-
-        return is_directed ? amount : amount / 2;
-    }
-
-    /// Removes all elements from the container. Invalidates any references,
-    /// pointers, or iterators referring to
-    /// contained elements. May also invalidate past-the-end iterators.
-    ///
-    /// # Complexity
-    /// Linear in the size of the graph.
-    ///
-    void clear() noexcept
-    {
-        _vertices.clear();
-    }
-
-    /// Inserts element(s) into the container, if the container doesn't already
-    /// contain an element with an equivalent
-    /// key.
-    ///
-    /// # Complexity
-    /// Average case: O(1), worst case linear in the amount of vertices
-    ///
-    /// \param value element value to insert
-    iterator insert(value_type const& value) noexcept
-    {
-        using std::end;
-        return iterator(_vertices.insert(end(_vertices), Vertex(value)));
-
-    }
-
-    /// Inserts element(s) into the container, if the container doesn't already
-    /// contain an element with an equivalent
-    /// key.
-    ///
-    /// # Complexity
-    /// Average case: O(1), worst case linear in the amount of vertices
-    ///
-    /// \param value element value to insert
-    iterator insert(value_type&& value) noexcept
-    {
-        using std::end;
-        return iterator(_vertices.insert(end(_vertices), Vertex(value)));
-    }
-
-    /// Inserts a new element into the container constructed in-place with the
-    /// given args if there is no element with
-    /// the key in the container.
-    ///
-    /// # Complexity
-    /// Amortized constant on average, worst case linear in the amount of
-    /// vertices.
-    ///
-    /// # Exceptions
-    /// If an exception is thrown by any operation, this function has no effect.
-    ///
-    /// \param args arguments to forward to the constructor of the element
-    template <typename... Args>
-    iterator emplace(Args&&... args)
-    {
-        using std::end;
-        return iterator(_vertices.emplace(end(_vertices), std::forward<Args>(args)...));
-    };
-
-    /// Removes the element at pos. References and iterators to the erased
-    /// elements are invalidated. Other iterators and
-    /// references are not invalidated. The iterator pos must be valid and
-    /// dereferenceable. Thus the `end()` iterator
-    /// (which is valid, but is not dereferencable) cannot be used as a value
-    /// for pos.
-    ///
-    /// # Complexity
-    /// Average case constant, worst case linear in the amount of edges
-    ///
-    /// \param pos iterator to the element to remove
-    void erase(iterator pos) noexcept
-    {
-        using std::remove_if;
-        using std::begin;
-        using std::end;
-
-        for (auto& vertex : _vertices) {
-            vertex.adjacent_edges.erase(remove_if(begin(vertex.adjacent_edges), end(vertex.adjacent_edges),
-                                                  [pos](Edge const& edge) {
-                                                      return edge.incident_vertex == pos._list_iterator;
-                                                  }),
-                                        end(vertex.adjacent_edges));
-        }
-
-        return iterator(_vertices.erase(pos._list_iterator));
-    }
-
-    /// Exchanges the contents of the container with those of other. Does not
-    /// invoke any move, copy, or swap operations
-    /// on individual elements. All iterators and references remain valid. The
-    /// past-the-end iterator is invalidated.
-    ///
-    /// # Complexity
-    /// Constant.
-    ///
-    /// \param other container to exchange the contents with
-    void swap(graph& other)
-    {
-        _vertices.swap(other._vertices);
-    }
-
-    /// Adds a directed edge (a, b) from the vertex with key a to the vertex
-    /// with key b.
-    ///
-    /// # Complexity
-    /// Constant.
-    ///
-    /// \param a key of the first vertex
-    /// \param b key of the second vertex
-    void add_edge(iterator& a, iterator& b) noexcept
-    {
-        a._list_iterator->adjacent_edges.push_back(Edge(b._list_iterator));
-        if (!is_directed) {
-            b._list_iterator->adjacent_edges.push_back(Edge(a._list_iterator));
-        }
-    }
-
-private:
-    vertex_list _vertices; ///< The vertices of the graph
+enum class Direction : std::uint8_t {
+    Outgoing = 0,
+    Ingoing = 1
 };
 
-template <typename T, bool is_directed>
-inline bool operator==(Graph<T, is_directed> const& lhs, Graph<T, is_directed> const& rhs)
+Direction opposite(Direction direction)
 {
-    return lhs._vertices == rhs._vertices;
+    switch (direction) {
+    case Direction::Outgoing:
+        return Direction::Ingoing;
+    case Direction::Ingoing:
+        return Direction::Outgoing;
+    }
 }
 
-template <typename T, bool is_directed>
-inline bool operator!=(Graph<T, is_directed> const& lhs, Graph<T, is_directed> const& rhs)
+constexpr std::size_t index(Direction direction)
 {
-    return !(lhs == rhs);
+    return static_cast<std::size_t>(direction);
+}
 }
 
-template <typename T>
-using DirectedGraph = Graph<T, true>;
 
-template <typename T>
-using UndirectedGraph = Graph<T, false>;
+
+template <typename Ix>
+struct NodeIndex
+{
+    using index_t = Ix;
+
+    NodeIndex(Ix index = std::numeric_limits<Ix>::max())
+    : _index(index)
+    {
+    }
+
+    std::size_t index() const
+    {
+        return _index;
+    }
+
+    static NodeIndex end()
+    {
+        return {std::numeric_limits<Ix>::max()};
+    }
+
+    EdgeIndex<Ix> _into_edge() const
+    {
+        return {_index};
+    }
+
+    Ix _index;
+};
+
+template <typename Ix>
+struct EdgeIndex
+{
+    EdgeIndex(Ix index = std::numeric_limits<Ix>::max())
+    : _index(index)
+    {
+    }
+
+    std::size_t index() const
+    {
+        return _index;
+    }
+
+    static EdgeIndex end()
+    {
+        return {std::numeric_limits<Ix>::max()};
+    }
+
+    NodeIndex<Ix> _into_edge() const
+    {
+        return {_index};
+    }
+
+    Ix _index;
+};
+
+template <typename N, typename Ix>
+struct Node
+{
+
+    Node(N const& weight = {})
+    : weight(weight)
+    , next({EdgeIndex<Ix>::end(), EdgeIndex<Ix>::end()})
+    {
+    }
+
+    EdgeIndex<Ix> next_edge(Direction::Direction dir) const
+    {
+        return next[Direction::index(dir)];
+    }
+
+    N weight;
+    std::array<EdgeIndex<Ix>, 2> next;
+};
+
+template <typename E, typename Ix>
+struct Edge
+{
+
+    Edge(std::array<NodeIndex<Ix>, 2> node, E const& weight = {})
+    : weight(weight)
+    , next({EdgeIndex<Ix>::end(), EdgeIndex<Ix>::end()})
+    , node(node)
+    {
+    }
+
+    EdgeIndex<Ix> next_edge(Direction::Direction dir) const
+    {
+        return next[Direction::index(dir)];
+    }
+
+    EdgeIndex<Ix> source() const
+    {
+        return node[0];
+    }
+
+    EdgeIndex<Ix> target() const
+    {
+        return node[1];
+    }
+
+    E weight;
+    std::array<EdgeIndex<Ix>, 2> next;
+    std::array<NodeIndex<Ix>, 2> node;
+};
+
+template <typename N, typename E, bool directed, typename Ix>
+struct Graph
+{
+
+    Graph()
+    : nodes()
+    , edges()
+    {
+    }
+
+    Graph(std::size_t nodes, std::size_t edges)
+    : nodes(nodes)
+    , edges(edges)
+    {
+    }
+
+    void clear()
+    {
+        nodes.clear();
+        edges.clear();
+    }
+
+    std::size_t node_count() const
+    {
+        return nodes.size();
+    }
+
+    std::size_t edge_count() const
+    {
+        return edges.size();
+    }
+
+    bool is_directed() const
+    {
+        return directed;
+    }
+
+    NodeIndex<Ix> add_node(N const& weight)
+    {
+        auto const node_idx = NodeIndex<Ix>(nodes.size());
+        nodes.push_back(Node<N, Ix>(weight));
+        return node_idx;
+    }
+
+    N const& node_weight(NodeIndex<Ix> a) const
+    {
+        return nodes[a.index()].weight;
+    }
+
+    N& node_weight(NodeIndex<Ix> a)
+    {
+        return nodes[a.index()].weight;
+    }
+
+    auto add_edge(NodeIndex<Ix> a, NodeIndex<Ix> b, E const& weight) -> EdgeIndex<Ix>
+    {
+        auto const edge_idx = EdgeIndex<Ix>(edges.size());
+        auto edge = Edge<E, Ix>({{a, b}}, weight);
+
+        if (a.index() == b.index()) {
+            auto& an = nodes.at(a.index());
+            edge.next = an.next;
+            an.next[0] = an.next[1] = edge_idx;
+        }
+        else {
+            auto& an = nodes.at(a.index());
+            auto& bn = nodes.at(b.index());
+            edge.next = {{an.next[0], bn.next[1]}};
+            an.next[0] = edge_idx;
+            bn.next[1] = edge_idx;
+        }
+        edges.push_back(edge);
+        return edge_idx;
+    }
+
+    E const& edge_weight(EdgeIndex<Ix> e) const
+    {
+        return edges.at(e.index()).weight;
+    }
+
+    E& edge_weight(EdgeIndex<Ix> e)
+    {
+        return edges.at(e.index()).weight;
+    }
+
+    std::pair<NodeIndex<Ix>, NodeIndex<Ix>> edge_endpoints(EdgeIndex<Ix> e) const
+    {
+        auto const& ed = edges.at(e.index());
+        return std::make_pair(ed.source(), ed.target());
+    }
+
+    std::vector<Node<N, Ix>> nodes;
+    std::vector<Edge<N, Ix>> edges;
+};

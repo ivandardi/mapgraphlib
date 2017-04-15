@@ -5,7 +5,7 @@ message("${PROJECT_SOURCE_DIR}")
 set(PROJECT_NAME "Graph")
 project(${PROJECT_NAME})
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wfatal-errors")
@@ -22,6 +22,7 @@ set(SRC_DIR ${CMAKE_SOURCE_DIR}/tests)
 set(SRC_FILES
     ${SRC_DIR}/test_base.cpp
     ${SRC_DIR}/basic_operations.cpp
+    ${SRC_DIR}/visiting.cpp
 )
 
 add_executable(${PROJECT_NAME} ${SRC_FILES})

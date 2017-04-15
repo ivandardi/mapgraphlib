@@ -2,16 +2,16 @@
 #include <catch.hpp>
 #include <map>
 
-SCENARIO("Basic Operations", "[basic-operations]")
+SCENARIO("Visiting", "[visiting]")
 {
 
-    GIVEN("An undirected graph with 5 vertices")
+    GIVEN("An undirected graph")
     {
 
         UnGraph<int, int> graph;
         std::map<int, NodeIndex<DefaultIx>> vertice_tags;
 
-        const int num_vertices = 5;
+        const int num_vertices = 6;
 
         for (int i = 0; i < num_vertices; ++i) {
             vertice_tags[i] = graph.add_node(i);
